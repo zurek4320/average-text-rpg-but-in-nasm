@@ -8,7 +8,7 @@ section .data
     py: dd 5
     hp: dd 100
     damage: dd 10
-    regeneration_speed: dd 7
+    regeneration_speed: dd 12
     moves_to_fight: dd 3
     nrd_num: dd 1
 
@@ -16,10 +16,16 @@ section .data
     enemy_hp: dd 15
     enemy_damage: dd 5
 
+    regenerations_left: dd 3
+
     ; ------ variables for "functions" or something ------
     new_line: dd 10
     cls_code: db 27, "[2J", 27, "[H", 0
-    cls_len:  equ $-cls_code-1
+    cls_len: equ $-cls_code-1
+    enemy_name1: db "Slime"
+    enemy_name1_len: equ $-enemy_name1
+    enemy_name2: db "Goblin"
+    enemy_name2_len: equ $-enemy_name2
 
     ; ------ stuff to print I guess ------
     string0: db "Player X: "
@@ -32,12 +38,18 @@ section .data
     string3_len: equ $-string3
     string4: db "Regeneration speed: "
     string4_len: equ $-string4
-    string5: db "(w, s, a, d)"
+    string5: db "(w, s, a, d, info, exit)"
     string5_len: equ $-string5
     string6: db "Enemy HP: "
     string6_len: equ $-string6
-    string7: db "Enemy Damage: "
+    string7: db "Enemy damage: "
     string7_len: equ $-string7
+    string8: db "Enemy name: "
+    string8_len: equ $-string8
+    string9: db "Regenerations left: "
+    string9_len: equ $-string9
+    stringA: db "No more regenerations left! (press enter to continue)"
+    stringA_len: equ $-stringA
     
 section .text
 
@@ -102,6 +114,37 @@ get_input:
 
 _start:
     game_loop:
+
+        mov eax, [px]
+        mov ebx, 11
+        cmp eax, ebx
+        je max_x_pos
+        mov eax, [px]
+        mov ebx, 0
+        cmp eax, ebx
+        je max_x_neg
+        mov eax, [py]
+        mov ebx, 11
+        cmp eax, ebx
+        je max_y_pos
+        mov eax, [py]
+        mov ebx, 0
+        cmp eax, ebx
+        je max_y_neg
+        jmp movement_border_end
+        max_x_pos:
+            mov dword [px], 10
+            jmp movement_border_end
+        max_x_neg:
+            mov dword [px], 1
+            jmp movement_border_end
+        max_y_pos:
+            mov dword [py], 10
+            jmp movement_border_end
+        max_y_neg:
+            mov dword [py], 1
+        movement_border_end:
+
         call cls
         mov eax, [nrd_num]
         cmp eax, 1
@@ -223,26 +266,60 @@ fight:
     enemy_I:
         mov dword [enemy_damage], 5
         mov dword [enemy_hp], 15
+        mov dword [moves_to_fight], 3
+        mov dword [enemy_type], 1
         jmp fight_start
     enemy_II:
         mov dword [enemy_damage], 10
         mov dword [enemy_hp], 35
+        mov dword [moves_to_fight], 5
+        mov dword [enemy_type], 2
         jmp fight_start
     
     fight_start:
         call cls
-        mov ecx, string6
-        mov edx, string6_len
+        mov ecx, string2
+        mov edx, string2_len
         call print
         mov eax, [hp]
         call print_num
         call print_new_line
-        mov ecx, string7
-        mov edx, string7_len
+        mov ecx, string3
+        mov edx, string3_len
         call print
         mov eax, [damage]
         call print_num
         call print_new_line
+        mov ecx, string9
+        mov edx, string9_len
+        call print
+        mov eax, [regenerations_left]
+        call print_num
+        call print_new_line
+
+        mov ecx, string8
+        mov edx, string8_len
+        call print
+
+        mov eax, [enemy_type]
+        mov ebx, 1
+        cmp eax, ebx
+        je slime
+        mov eax, [enemy_type]
+        mov ebx, 2
+        cmp eax, ebx
+        je goblin
+        slime:
+            mov ecx, enemy_name1
+            mov edx, enemy_name1_len
+            jmp enemy_name_printing_end
+        goblin:
+            mov ecx, enemy_name2
+            mov edx, enemy_name2_len
+        enemy_name_printing_end:
+            call print
+            call print_new_line
+
         mov ecx, string6
         mov edx, string6_len
         call print
@@ -277,12 +354,29 @@ fight:
 
                 mov eax, [damage]
                 sub [enemy_hp], eax
+                jmp two_end
             two:
-                mov eax, [enemy_damage]
-                sub [hp], eax
+                mov eax, [regenerations_left]
+                mov ebx, 0
+                cmp eax, ebx
+                je cant_regenerate
+                can_regenerate:
+                    mov eax, [enemy_damage]
+                    sub [hp], eax
 
-                mov eax, [regeneration_speed]
-                add [hp], eax
+                    mov eax, [regeneration_speed]
+                    add [hp], eax
+                    sub dword [regenerations_left], 1
+                    jmp two_end
+                cant_regenerate:
+                    call cls
+                    mov ecx, stringA
+                    mov edx, stringA_len
+                    call print
+                    call print_new_line
+                    mov ecx, input
+                    call get_input
+            two_end:
 
         mov eax, [hp]
         cmp eax, 0
@@ -299,7 +393,7 @@ fight:
             jmp fight_start
 
 win:
-    mov dword [moves_to_fight], 3
+    mov dword [regenerations_left], 3
     jmp game_loop
 
 death:
