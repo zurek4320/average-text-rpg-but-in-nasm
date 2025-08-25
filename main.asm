@@ -8,6 +8,7 @@ section .data
     py: dd 5
     hp: dd 100
     damage: dd 10
+    gold: dd 0
     regeneration_speed: dd 12
     moves_to_fight: dd 3
     nrd_num: dd 1
@@ -26,6 +27,12 @@ section .data
     enemy_name1_len: equ $-enemy_name1
     enemy_name2: db "Goblin"
     enemy_name2_len: equ $-enemy_name2
+
+    map: db "@  @  @  @  @  @  @  @  @  @", 10, "@  S  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10, "@  @  @  @  @  @  @  @  @  @", 10
+    map_len: equ $-map
+
+    green db 27, '[32m', 0
+    reset db 27, '[0m', 0
 
     ; ------ stuff to print I guess ------
     string0: db "Player X: "
@@ -50,11 +57,39 @@ section .data
     string9_len: equ $-string9
     stringA: db "No more regenerations left! (press enter to continue)"
     stringA_len: equ $-stringA
+    stringB: db "Map:"
+    stringB_len: equ $-stringB
+    stringC: db "SHOP:"
+    stringC_len: equ $-stringC
+    stringD: db "Gold:"
+    stringD_len: equ $-stringD
+    stringE: db "1. Upgrade damage (+1) - 10 gold"
+    stringE_len: equ $-stringE
+    stringF: db "2. Upgrade regeneration speed (+1) - 15 gold"
+    stringF_len: equ $-stringF
+    string10: db "You don't have enough gold to afford that. (press enter to continue)"
+    string10_len: equ $-string10
+    string11: db "3. Exit"
+    string11_len: equ $-string11
     
 section .text
 
 global _start
 
+green_color:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, green
+    mov edx, 5 
+    int 80h
+    ret
+reset_color:
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, reset
+    mov edx, 5 
+    int 80h
+    ret
 cls:
     mov ecx, cls_code
     mov edx, cls_len
@@ -114,7 +149,6 @@ get_input:
 
 _start:
     game_loop:
-
         mov eax, [px]
         mov ebx, 11
         cmp eax, ebx
@@ -160,7 +194,17 @@ _start:
         nrd_num_ten:
             mov dword [nrd_num], 10
         nrd_num_end:
-
+        ; print("Map:\n", green(map), "\n")
+        mov ecx, stringB
+        mov edx, stringB_len
+        call print
+        call print_new_line
+        call green_color
+        mov ecx, map
+        mov edx, map_len
+        call print
+        call reset_color
+        call print_new_line
         ; print("Player X: ", px, "\n")
         mov ecx, string0
         mov edx, string0_len
@@ -187,6 +231,13 @@ _start:
         mov edx, string3_len
         call print
         mov eax, [damage]
+        call print_num
+        call print_new_line
+        ; print("Gold: ", gold, "\n")
+        mov ecx, stringD
+        mov edx, stringD_len
+        call print
+        mov eax, [gold]
         call print_num
         call print_new_line
         ; print("Regeneration speed: ", regeneration_speed, "\n")
@@ -231,6 +282,10 @@ _start:
             mov ebx, [input]
             cmp eax, ebx
             je exit
+            mov al, 'e'
+            mov bl, [input]
+            cmp al, bl
+            je e
             jmp main_input_loop       
             w:
                 add dword [py], 1
@@ -252,6 +307,18 @@ _start:
                 sub dword [moves_to_fight], 1
                 shr dword [nrd_num], 1
                 jmp game_loop
+            e:
+                mov eax, [px]
+                mov ebx, 2
+                cmp eax, ebx
+                jne not_shop
+                mov eax, [py]
+                mov ebx, 9
+                cmp eax, ebx
+                jne not_shop
+                jmp shop               
+                not_shop:
+                    jmp game_loop
             exit:
                 mov eax, 1
                 mov ebx, 1
@@ -268,12 +335,14 @@ fight:
         mov dword [enemy_hp], 15
         mov dword [moves_to_fight], 3
         mov dword [enemy_type], 1
+        add dword [gold], 5
         jmp fight_start
     enemy_II:
         mov dword [enemy_damage], 10
         mov dword [enemy_hp], 35
         mov dword [moves_to_fight], 5
         mov dword [enemy_type], 2
+        add dword [gold], 15
         jmp fight_start
     
     fight_start:
@@ -391,6 +460,86 @@ fight:
         max_hp:
             mov dword [hp], 100
             jmp fight_start
+
+shop:
+    call cls
+    mov ecx, stringC
+    mov edx, stringC_len
+    call print
+    call print_new_line
+    mov ecx, string3
+    mov edx, string3_len
+    call print
+    mov eax, [damage]
+    call print_num
+    call print_new_line
+    mov ecx, string4
+    mov edx, string4_len
+    call print
+    mov eax, [regeneration_speed]
+    call print_num
+    call print_new_line
+    mov ecx, stringD
+    mov edx, stringD_len
+    call print
+    mov eax, [gold]
+    call print_num
+    call print_new_line
+    mov ecx, stringE
+    mov edx, stringE_len
+    call print
+    call print_new_line
+    mov ecx, stringF
+    mov edx, stringF_len
+    call print
+    call print_new_line
+    mov ecx, string11
+    mov edx, string11_len
+    call print
+    call print_new_line
+    shop_input_loop:
+        mov ecx, input
+        call get_input
+
+        mov al, '1'
+        mov bl, [input]
+        cmp al, bl
+        je up_dmg
+        mov al, '2'
+        mov bl, [input]
+        cmp al, bl
+        je up_reg
+        mov al, '3'
+        mov bl, [input]
+        cmp al, bl
+        je game_loop
+        jmp shop_input_loop
+    up_dmg:
+        mov eax, [gold]
+        mov ebx, 10
+        cmp eax, ebx
+        jl to_low_gold
+        sub dword [gold], 10
+        add dword [damage], 1
+        jmp shop
+    up_reg:
+        mov eax, [gold]
+        mov ebx, 15
+        cmp eax, ebx
+        jl to_low_gold
+        sub dword [gold], 15
+        add dword [regeneration_speed], 1
+        jmp shop
+
+to_low_gold:
+    call cls
+    mov ecx, string10
+    mov edx, string10_len
+    call print
+    call print_new_line
+    mov ecx, input
+    call get_input
+    jmp shop
 
 win:
     mov dword [regenerations_left], 3
